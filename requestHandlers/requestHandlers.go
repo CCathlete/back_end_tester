@@ -58,7 +58,8 @@ func ValidateHttpMethod(method string) bool {
 }
 
 func (c *MyClient) MakeRequest(method string, requestURL string,
-	requestBody io.Reader) {
+	requestBody io.Reader, withAUTH bool, userName, password string,
+	headers map[string]string) {
 	// Checking the method we use.
 	if isMethodValid := ValidateHttpMethod(method); !isMethodValid {
 		fmt.Println("This type of request is not supported.")
@@ -66,6 +67,9 @@ func (c *MyClient) MakeRequest(method string, requestURL string,
 	}
 	// Create an http request 'object' with the URL inside.
 	request, err := http.NewRequest(method, requestURL, requestBody)
+	if withAUTH {
+		request.SetBasicAuth(userName, password)
+	}
 	// If there"s a problem, exit the program with return value = 1.
 	if err != nil {
 		fmt.Printf("error making http request: %s\n", err)
@@ -74,6 +78,11 @@ func (c *MyClient) MakeRequest(method string, requestURL string,
 	/* Setting the content type of the request's body to be json media
 	   type in our requests header. */
 	request.Header.Set("Content-Type", "application/json")
+
+	// Setting additional headers if needed.
+	for headerName, headerContent := range headers {
+		request.Header.Set(headerName, headerContent)
+	}
 
 	// Activate the request.
 	response, err := c.Body.Do(request)
@@ -89,6 +98,8 @@ func (c *MyClient) MakeRequest(method string, requestURL string,
 	if err != nil {
 		fmt.Printf("client: couldn't read the response: %s\n", err)
 		os.Exit(1)
+	} else {
+		fmt.Println(string(responseByteSlice))
 	}
 	// Print the json response with proper indentation.
 	var byteBuffer bytes.Buffer
