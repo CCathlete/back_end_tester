@@ -23,11 +23,6 @@ func main() {
 			Timeout: 30 * time.Second,
 		},
 	}
-	// fmt.Printf("Making a GET request to the main site.\n")
-	// requestURL := "https://online-qa-test.ccdemo.site"
-	// myClient.MakeRequest(http.MethodGet, requestURL,
-	// 	nil, true, "qa-test", "1z2a6iTzNmKPvHga", nil)
-	// fmt.Println("\n")
 
 	fmt.Printf("Making a POST request to the main site.\n")
 	requestURL := "https://online-qa-test.ccdemo.site"
@@ -39,11 +34,20 @@ func main() {
 	// bodyReader := myReader{}
 	myClient.MakeRequest(http.MethodPost, requestURL, bodyReader,
 		true, "qa-test", "1z2a6iTzNmKPvHga", headers)
-	fmt.Println("\n")
+	fmt.Print("\n\n")
+
+	fmt.Printf("Making a POST request to the main site.\n")
+	requestURL = "https://online-qa-test.ccdemo.site/user"
+	jsonByteSlice = []byte(`{"client_message": "hemlo, server fren."}`)
+	// Creating an io reader 'object' with our message in it."
+	bodyReader = bytes.NewReader(jsonByteSlice)
+	myClient.MakeRequest(http.MethodPost, requestURL, bodyReader,
+		true, "civicrm_user", "civicrm_user", headers)
+	fmt.Print("\n\n")
 
 	fmt.Printf("Making a GET request to the civiCRM system, with authentication.\n")
 	requestURL = "https://online-qa-test.ccdemo.site/civicrm/dashboard"
 	myClient.MakeRequest(http.MethodGet, requestURL,
 		nil, true, "civicrm_user", "civicrm_user", nil)
-	fmt.Println("\n")
+	fmt.Print("\n\n")
 }

@@ -90,6 +90,30 @@ func (c *MyClient) MakeRequest(method string, requestURL string,
 		fmt.Printf("error making http request: %s\n", err)
 		os.Exit(1)
 	}
+	defer response.Body.Close()
+
+	// Checking if the response was a redirect.
+	if response.StatusCode >= 300 && response.StatusCode <= 399 {
+		fmt.Println("We had a redirect! ", response.StatusCode)
+		redirectUrl, err := response.Location()
+		if err != nil {
+			fmt.Println("Error getting redirect location: ",
+				err)
+			os.Exit(1)
+		}
+
+		// Crearing a new GET request to follow the redirect.
+		request.URL = redirectUrl
+		response, err = c.Body.Do(request)
+		if err != nil {
+			fmt.Println("Error sending redirect request: ",
+				err)
+			os.Exit(1)
+		}
+	}
+	defer response.Body.Close()
+
+	// Processing the response.
 	time.Sleep(50 * time.Millisecond) // Might not be needed, check.
 	fmt.Println("client: got response! YEY!")
 	fmt.Printf("client: status code %d\n", response.StatusCode)
