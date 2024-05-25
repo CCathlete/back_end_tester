@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -57,15 +60,28 @@ func ValidateHttpMethod(method string) bool {
 	}
 }
 
-func (c *MyClient) MakeRequest(method string, requestURL string,
-	requestBody io.Reader, withAUTH bool, userName, password string,
-	headers map[string]string) {
+func (c *MyClient) MakeRequest(
+	method string, requestURL string,
+	requestBody io.Reader, withAUTH bool,
+	userName, password, csrfToken string,
+	headers map[string]string) ([]byte, map[string][]string) {
 	// Checking the method we use.
 	if isMethodValid := ValidateHttpMethod(method); !isMethodValid {
 		fmt.Println("This type of request is not supported.")
 		os.Exit(1)
 	}
-	// Create an http request 'object' with the URL inside.
+	// If there's a csrf token, it means that the request body
+	// should be of type "application/x-www-form-urlencoded".
+	if csrfToken != "" {
+		form := url.Values{}
+		form.Add("name", userName)
+		form.Add("pass", password)
+		form.Add("form_build_id", csrfToken)
+		form.Add("form_id", "user_login")
+		form.Add("op", `Log+in`)
+		requestBody = strings.NewReader(form.Encode())
+	}
+	// Creating an http request 'object' with the URL inside.
 	request, err := http.NewRequest(method, requestURL, requestBody)
 	if withAUTH {
 		request.SetBasicAuth(userName, password)
@@ -77,14 +93,14 @@ func (c *MyClient) MakeRequest(method string, requestURL string,
 	}
 	/* Setting the content type of the request's body to be json media
 	   type in our requests header. */
-	request.Header.Set("Content-Type", "application/json")
+	// request.Header.Set("Content-Type", "application/json")
 
 	// Setting additional headers if needed.
 	for headerName, headerContent := range headers {
 		request.Header.Set(headerName, headerContent)
 	}
 
-	// Activate the request.
+	// Activating the request.
 	response, err := c.Body.Do(request)
 	if err != nil {
 		fmt.Printf("error making http request: %s\n", err)
@@ -102,7 +118,7 @@ func (c *MyClient) MakeRequest(method string, requestURL string,
 			os.Exit(1)
 		}
 
-		// Crearing a new GET request to follow the redirect.
+		// Creating a new GET request to follow the redirect.
 		request.URL = redirectUrl
 		response, err = c.Body.Do(request)
 		if err != nil {
@@ -133,4 +149,19 @@ func (c *MyClient) MakeRequest(method string, requestURL string,
 	}
 	fmt.Printf("\nclient: response body:\n")
 	byteBuffer.WriteTo(os.Stdout)
+	return responseByteSlice, response.Header
+}
+
+func (c *MyClient) ExtractCSRFToken(responseByteSlice []byte) (string, error) {
+	// Gets the body of a response as byte slice, converts it to string,
+	// extracts from it the csrf token using regexp and returns it.
+	// I assume that the response if in HTML form since it's after a GET request.
+	responseBodyString := string(responseByteSlice)
+	pattern := `name="form_build_id" value="(.+?)"`
+	re := regexp.MustCompile(pattern)
+	matches := re.FindStringSubmatch(responseBodyString)
+	if len(matches) < 2 {
+		return "", fmt.Errorf("CSRF token not found")
+	}
+	return matches[1], nil
 }
